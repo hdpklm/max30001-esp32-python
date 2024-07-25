@@ -4,6 +4,9 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from scipy.signal import find_peaks
 
+def MA(data, window_size):
+    return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+
 # Configura el puerto serial (ajusta según sea necesario)
 try:
 	ser = serial.Serial('COM5', 115200, timeout=0.001)
@@ -53,9 +56,12 @@ def update(frame):
 			return
 
 		if len(data) >= 500:
-			data_to_plot = data[-500:]
+			ma1 = MA(data[-500-64:], 64)[:500]
+			data_to_plot = (data[-500-32:])[:500]
 			offset = len(data) - 500
+			ma2 = np.array(data_to_plot) - np.array(ma1)
 		else:
+			ma1 = ma2 = []
 			data_to_plot = data
 			offset = 0
 
@@ -65,12 +71,18 @@ def update(frame):
 			peaks = [p for p in peaks if p >= offset]
 			peaks_t = np.array(peaks) - offset
 
+
 		sec += 1
 		plt.clf()
-		plt.plot(data_to_plot)
-		plt.plot(peaks_t, np.array(data_to_plot)[peaks_t], "x")
+		# plt.plot(data_to_plot, label='ECG')
+		# plt.plot(ma1, label='MA1')
+		plt.plot(ma2, label='MA2')
+		plt.hlines(0, 0, len(data_to_plot), 'r')
+		# plt.plot(peaks_t, np.array(data_to_plot)[peaks_t], "x")
+		plt.legend()
 		plt.xlabel('Time')
-		plt.ylim(0, 0.0005)
+		plt.ylim(-0.00025, 0.0007)
+		# plt.ylim(-0.01, 0.01)
 		plt.ylabel('ECG')
 		plt.title(f"Pulsos por minuto (PPM): {ppm:.2f} (PPM2): {ppm2:.2f}, sec: {sec}")
 
