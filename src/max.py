@@ -107,7 +107,7 @@ class Max:
 
 	def ecg_volt(self, adc):
 		if adc & 0x020000:
-			adc = 0x040000 - adc
+			adc =  adc - 0x040000
 		
 		volt = (adc * self.VREF) / (2**17 * self.ECG_GAIN_VAL)
 		return volt
