@@ -33,6 +33,7 @@ class Max:
 	BIOZ_GAIN = 0
 	BIOZ_GAIN_ARR = [10, 20, 40, 80]
 	BIOZ_GAIN_VAL = BIOZ_GAIN_ARR[BIOZ_GAIN]
+	bioz_arr = []
 
 	# reg: 0x18(CNFG_BIOZ)
 	# page: 58
@@ -71,34 +72,47 @@ class Max:
 	def freq(self, _freq):
 		self._freq = int(_freq)
 
+	def state_update(self):
+		state = reg.status()
+		# 0x40: ECG FIFO Overrun
+		# 0x04: BIOZ FIFO Overrun
+		if (state[0] & 0x44) != 0:
+			reg.fifo_rst()
+			return False
+		
+		if (state[0] & 0x80) != 0:
+			self.ecg_update()
+		
+		if (state[0] & 0x08) != 0:
+			self.bioz_update()
+
+		return True
+
 	def conv_bioz(self, data):
 		# page 67
 		adc = ((data[0] << 16) | (data[1] << 8) | data[2]) >> 3
 		volt = (adc * self.VREF) / (2**19 * self.BIOZ_CGMAG_VAL * self.BIOZ_GAIN_VAL)
 		return volt
 
-	def read_bioz(self):
-		# page 67
+	def bioz_update(self):
 		data = reg.read_reg(0x22, 3)
-		tag = data[2] & 0x03
-		if tag > 0x00 and tag != 0x02:
-			return -tag
+		self.bioz_arr = [self.bioz_value_tag(data)[0]]
+		return True
 
-		adc = ((data[0] << 16) | (data[1] << 8) | data[2]) >> 3
+	def bioz_volt(self, adc):
+		if adc & 0x080000:
+			adc =  adc - 0x100000
+		
 		volt = (adc * self.VREF) / (2**19 * self.BIOZ_CGMAG_VAL * self.BIOZ_GAIN_VAL)
 		return volt
 
-	def ecg_update(self):
-		state = reg.status()
-		if (state[0] & 0x40) == 1:
-			reg.fifo_rst()
-			self.ecg_arr = []
-			return False
-		
-		if (state[0] & 0x80) == 0:
-			self.ecg_arr = []
-			return False
+	def bioz_value_tag(self, data):
+		# page 67
+		tag = data[2] & 0x03
+		adc = ((data[0] << 16) | (data[1] << 8) | data[2]) >> 3
+		return adc, tag
 
+	def ecg_update(self):
 		reads = reg.read_reg(0x04, 1)
 		count = ((reads[0] >> 3) & 0x1F) + 1
 		data = reg.read_reg(0x20, 3 * count)

@@ -2,4 +2,6 @@ esptool.py --chip esp32 erase_flash
 esptool.py --chip esp32 --baud 460800 write_flash -z 0x1000 ESP32_GENERIC-20240602-v1.23.0.bin
 
 
+mpremote fs cp config.py : 
+mpremote fs cp max_reg.py :
 mpremote fs cp max.py :

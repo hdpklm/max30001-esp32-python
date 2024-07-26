@@ -96,3 +96,4 @@ ani = animation.FuncAnimation(fig, update, interval=100)
 
 plt.show()
 ser.close()
+

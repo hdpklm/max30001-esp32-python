@@ -6,20 +6,31 @@ import time
 # import sys
 # import json
 # import math
-from machine import Timer, reset, freq, reset
+from machine import Timer, reset, freq, reset, Pin
 
 from config import *
 from max import mx
 
 freq(80000000)
+debug_pin = Pin(PIN_DEBUG, Pin.IN, Pin.PULL_UP)
+running = debug_pin.value() == 1
 
-
-class Struct:
+class Status:
+	state = 0
+	ecg = 0
+	ppm = 0
+	bioz = 0
 	pass
 
+state = Status()
 
-def boot():
-	os.remove('/boot.py')
+def run():
+	os.rename('/__boot.py', '/boot.py')
+	reset()
+
+def kill():
+	os.rename('/boot.py', '/__boot.py')
+	reset()
 
 def reg_hex(reg, padding=3):
 	reg = bytearray(reg)
@@ -63,10 +74,46 @@ def init_max():
 	print("MAX30009 > mngr_int: " + str(reg_hex(mx.reg.mngr_int())))
 	print("MAX30009 > mngr_dyn: " + str(reg_hex(mx.reg.mngr_dyn())))
 
-
-
 def stop():
 	mx.abort()
+
+# Send Protocol Buffers
+# Id: 		1 byte	(MSB:1, ID: 7 bits)
+# state:	1 byte	(MSB:0, State: 7 bits)
+# PPM:		3 bytes	(Hex)
+# ECG:		3 bytes	(Hex)
+# BIOZ:		3 bytes	(Hex)
+def send_data():
+	send_buff = f"{0xA3:c},{int(state.state):X},{int(state.ppm):03X},{int(state.ecg):03X},{int(state.bioz):03X}"
+	print(send_buff)
+
+def scan_both():
+	mx.on()
+	time.sleep(0.1)
+
+	mx.reg.cnfg_gen(0x080017)
+	mx.reg.fifo_rst()
+	time.sleep(0.1)
+
+	while True:
+		time.sleep(1/128)
+		mx.state_update()
+		state.state = 0
+
+		if len(mx.ecg_arr) > 0:
+			state.ecg = mx.ecg_volt(mx.ecg_arr.pop(0))
+			state.state += 1
+
+			# # print("\n".join([str(x) for x in mx.ecg_arr]))
+			# arr = [mx.ecg_volt(x) for x in mx.ecg_arr]
+			# arr = [str(x) for x in arr]
+			# # print("\n".join(arr))
+
+		if len(mx.bioz_arr) > 0:
+			state.bioz = mx.bioz_volt(mx.bioz_arr.pop(0))
+			state.state += 2
+
+		send_data()
 
 def scan_ecg():
 	mx.on()
@@ -108,10 +155,24 @@ def scan_bioz():
 		print("\n".join(arr))
 
 
+
+def handle_interrupt(pin):
+	time.sleep(0.1)
+	if debug_pin.value() == 0:
+		reset()
+
+debug_pin.irq(trigger=Pin.IRQ_FALLING, handler=handle_interrupt)
+
 gc.collect()
+
+if running:
+	init_max()
+	scan_both()
+
+
 # tim = Timer(-1)
 # tim.init(period=1, mode=Timer.PERIODIC, callback=timer_update)
 
 # mx.off()
 
-# init_max(); scan_ecg()
+# init_max(); scan_both()

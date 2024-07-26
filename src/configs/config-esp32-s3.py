@@ -4,6 +4,8 @@ from micropython import const
 # for other boards, please copy this file from config/config-esp32-XX.py
 # then rename it to ~/config.py
 
+PIN_UART_TX = const(43)
+PIN_UART_RX = const(44)
 PIN_MAX_PWR = const(1)
 PIN_SPI_CS = const(42)
 PIN_SPI_CLK = const(14)
@@ -14,3 +16,4 @@ PIN_MAX_INT2 = const(41)
 PIN_MAX_FCLK = const(21)
 PIN_KEITO_RX = const(44)
 PIN_KEITO_TX = const(43)
+PIN_DEBUG = const(23)
